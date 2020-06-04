@@ -1,0 +1,9 @@
+create-board 100
+add-player-to-board Sara 1
+add-player-to-board Dhr 1
+add-player-to-board Ra 1
+add-player-to-board huha 1
+add-ladder 32 6 1
+add-ladder 48 12 1
+add-snake 9 1 1
+roll-dice 1
