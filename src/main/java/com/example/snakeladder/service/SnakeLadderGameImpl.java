@@ -1,16 +1,13 @@
 package com.example.snakeladder.service;
 
 import com.example.snakeladder.model.*;
-import com.example.snakeladder.repository.LadderRepository;
-import com.example.snakeladder.repository.PlayerRepository;
-import com.example.snakeladder.repository.SnakeLadderBoardRepository;
-import com.example.snakeladder.repository.SnakeRepository;
+import com.example.snakeladder.repository.*;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-
+@Slf4j
 @Service
 @AllArgsConstructor
 public class SnakeLadderGameImpl implements ISnakeLadderGame {
@@ -18,6 +15,7 @@ public class SnakeLadderGameImpl implements ISnakeLadderGame {
     private PlayerRepository playerRepository;
     private SnakeRepository snakeRepository;
     private LadderRepository ladderRepository;
+    private PlayerGamePositionRepository playerGamePositionRepository;
 
 
     @Override
@@ -37,22 +35,39 @@ public class SnakeLadderGameImpl implements ISnakeLadderGame {
     }
 
     @Override
+    @Transactional
     public Boolean addPlayer(String name, Long snakeLadderBoardId) {
-        Player player = new Player();
-        player.setName(name);
-        playerRepository.save(player);
+        try {
+            SnakeLadderBoard board = snakeLadderBoardRepository.findById(snakeLadderBoardId)
+                .orElseThrow(() -> new RuntimeException("Board not found"));
 
-        SnakeLadderBoard snakeLadderBoard = snakeLadderBoardRepository.findById(snakeLadderBoardId).get();
+            // Check if player exists or create new
+            Player player = playerRepository.findByName(name)
+                .orElseGet(() -> {
+                    Player newPlayer = new Player();
+                    newPlayer.setName(name);
+                    return playerRepository.save(newPlayer);
+                });
 
-        snakeLadderBoard.getPlayers().add(player);
-
-        snakeLadderBoard.getPlayerPositions().put(player, 0);
-        snakeLadderBoard.setNumberOfPlayers(snakeLadderBoard.getNumberOfPlayers()+1);
-
-        snakeLadderBoardRepository.save(snakeLadderBoard);
-        return true;
-
-        //duplicate entries: https://stackoverflow.com/questions/26763213/getting-duplicate-entries-using-hibernate
+            // Create and save PlayerGamePosition
+            PlayerGamePosition position = new PlayerGamePosition();
+            position.setPlayer(player);
+            position.setBoard(board);
+            position.setPosition(0);
+            position.setTurnOrder(board.getPlayerPositions().size());
+            
+            // Save the position
+            playerGamePositionRepository.save(position);
+            
+            // Add to board's collection
+            board.getPlayerPositions().add(position);
+            snakeLadderBoardRepository.save(board);
+            
+            return true;
+        } catch (Exception e) {
+            log.error("Error adding player: {}", e.getMessage());
+            return false;
+        }
     }
 
     @Override
@@ -77,29 +92,45 @@ public class SnakeLadderGameImpl implements ISnakeLadderGame {
     }
 
     @Override
+    @Transactional
     public void rollDice(Long snakeBoardId) {
-        SnakeLadderBoard snakeLadderBoard = snakeLadderBoardRepository.findById(snakeBoardId).get();
-        if (snakeLadderBoard.getGameState() == SnakeLadderBoard.GameState.IN_PROGRESS) {
-            Integer turn = snakeLadderBoard.getTurn();
-//            Player player = (Player) snakeLadderBoard.getPlayers().toArray()[turn];
-            Player player = snakeLadderBoard.getPlayers().get(turn);
+        SnakeLadderBoard board = snakeLadderBoardRepository.findById(snakeBoardId)
+            .orElseThrow(() -> new RuntimeException("Board not found"));
+        
+        if (board.getGameState() == SnakeLadderBoard.GameState.IN_PROGRESS) {
+            PlayerGamePosition currentPlayerPos = board.getCurrentPlayerPosition();
+            
             Integer steps = Dice.roll();
-            Integer destination = snakeLadderBoard.getPlayerPositions().get(player) + steps;
-            if (destination > 100) destination = destination - steps;
-            if (destination == 100) {snakeLadderBoard.setGameState(SnakeLadderBoard.GameState.OVER); System.out.println(player + "won"); return;}
-
-            Snake snake = snakeRepository.findBySnakeLadderBoardAndHead(snakeLadderBoard, destination);
-            Ladder ladder = ladderRepository.findBySnakeLadderBoardAndBottom(snakeLadderBoard, destination);
-            if (snake != null) destination = snake.getTail();
-            if (ladder != null) destination = ladder.getTop();
-            snakeLadderBoard.getPlayerPositions().put(player, destination);
-            turn = (turn + 1) % snakeLadderBoard.getNumberOfPlayers();
-
-            System.out.println(turn + " " + snakeLadderBoard.getNumberOfPlayers() + " " + steps + player);
-
-            snakeLadderBoard.setTurn(turn);
-            snakeLadderBoardRepository.save(snakeLadderBoard);
-            System.out.println(snakeLadderBoard.getPlayerPositions());
+            Integer newPosition = currentPlayerPos.getPosition() + steps;
+            
+            // Handle overshooting
+            if (newPosition > board.getSize()) {
+                newPosition = currentPlayerPos.getPosition();
+            }
+            
+            // Check for snakes and ladders
+            Snake snake = snakeRepository.findBySnakeLadderBoardAndHead(board, newPosition);
+            if (snake != null) {
+                newPosition = snake.getTail();
+            }
+            
+            Ladder ladder = ladderRepository.findBySnakeLadderBoardAndBottom(board, newPosition);
+            if (ladder != null) {
+                newPosition = ladder.getTop();
+            }
+            
+            // Update position
+            currentPlayerPos.setPosition(newPosition);
+            
+            // Check win condition
+            if (newPosition == board.getSize()) {
+                board.setGameState(SnakeLadderBoard.GameState.OVER);
+                log.info("Player {} won!", currentPlayerPos.getPlayer().getName());
+            } else {
+                board.nextTurn();
+            }
+            
+            snakeLadderBoardRepository.save(board);
         }
     }
 

@@ -4,7 +4,7 @@ import lombok.Data;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.*;
 
 @Entity
@@ -23,18 +23,22 @@ public class SnakeLadderBoard {
 
     private GameState gameState;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(
-            name = "player_position_mapping",
-            joinColumns = {@JoinColumn(name = "board_id", referencedColumnName = "id")})
-    private Map<Player, Integer> playerPositions = new HashMap<>();
+    @OneToMany(mappedBy = "board", fetch = FetchType.EAGER)
+    private List<PlayerGamePosition> playerPositions = new ArrayList<>();
 
-//    @OneToMany()
-//    private Set<Player> players = new HashSet<>();
+    @OneToMany(fetch = FetchType.EAGER, mappedBy = "snakeLadderBoard")
+    private List<Snake> snakes;
 
-    @OneToMany
-    private List<Player> players = new ArrayList<>();
+    @OneToMany(fetch = FetchType.EAGER, mappedBy = "snakeLadderBoard")
+    private List<Ladder> ladders;
 
-    private int numberOfPlayers = 0;
-    private int turn = 0;
+    private int currentTurn = 0;
+
+    public PlayerGamePosition getCurrentPlayerPosition() {
+        return playerPositions.get(currentTurn);
+    }
+
+    public void nextTurn() {
+        currentTurn = (currentTurn + 1) % playerPositions.size();
+    }
 }

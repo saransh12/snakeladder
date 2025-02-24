@@ -2,7 +2,8 @@ package com.example.snakeladder.model;
 
 import lombok.Data;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
+import java.util.List;
 
 @Entity
 @Data
@@ -12,16 +13,7 @@ public class Player {
     private Long id;
 
     private String name;
-//    private int position = 0;
 
-//    public Boolean moveBy(int steps){
-//        setPosition(position + steps);
-//        return true;
-//    }
-//
-//    public Boolean moveTo(int position){
-//        setPosition(position);
-//        return true;
-//    }
-
+    @OneToMany(mappedBy = "player")
+    private List<PlayerGamePosition> gamePositions;
 }

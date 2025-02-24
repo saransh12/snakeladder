@@ -2,9 +2,9 @@ package com.example.snakeladder.model;
 
 import lombok.Data;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
 import java.util.Random;
 
 
@@ -14,7 +14,7 @@ public class Dice {
     private static final int maxValue = 6;
 
     public static int roll(){
-        return new Random().nextInt(maxValue - minValue +1) + 1;
+        return new Random().nextInt(maxValue - minValue + 1) + minValue;
     }
 
 }

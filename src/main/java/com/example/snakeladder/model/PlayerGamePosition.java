@@ -1,24 +1,25 @@
 package com.example.snakeladder.model;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
+import lombok.Data;
 
 @Entity
 @Data
-@NoArgsConstructor
-public class Ladder {
+public class PlayerGamePosition {
     @Id
     @GeneratedValue
     private Long id;
 
-    private int top;
-    private int bottom;
+    @ManyToOne
+    private Player player;
 
     @ManyToOne
-    private SnakeLadderBoard snakeLadderBoard;
-}
+    private SnakeLadderBoard board;
+
+    private Integer position = 0;
+    
+    private Integer turnOrder;  // To maintain player order in the game
+} 
